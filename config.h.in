@@ -1,0 +1,21 @@
+#pragma once
+
+static auto maven_directory = utils::system::io::path::executable_file_directory() + L"\\repos\\.m2";
+static auto nodejs_directory = utils::system::io::path::executable_file_directory() + L"\\repos\\nodejs";
+
+static std::vector<repository> maven_repositories;
+static std::vector<repository> nodejs_repositories;
+static std::vector<std::wstring> prohibit;
+
+static class config {
+public:
+    config() {
+        synchronsize(L"config");
+        static auto b = false;
+        if (!b) {
+            b = true;
+            maven_repositories.emplace_back(L"https://repo1.maven.org/maven2", L"127.0.0.1", 8080);
+            nodejs_repositories.emplace_back(L"https://registry.npmjs.org", L"127.0.0.1", 8080);
+        }
+    }
+} repository_configuration;
