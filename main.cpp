@@ -6,12 +6,12 @@
 CRITICAL_SECTION criticalSection = { 0 };
 
 extern string_t mavenDirectory;
-extern std::vector<std::string> mavenRepos;
+extern std::vector<REPOSITORY> mavenRepos;
 extern std::vector<std::string> mavenExclude;
 extern std::vector<std::string> mavenIgnorePrefix;
 
 extern string_t nodejsDirectory;
-extern std::vector<std::string> nodejsRepos;
+extern std::vector<REPOSITORY> nodejsRepos;
 extern std::vector<std::string> nodejsExclude;
 extern std::vector<std::string> nodejsIgnorePrefix;
 

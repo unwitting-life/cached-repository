@@ -3,6 +3,26 @@
 #define CPPHTTPLIB_HTTPLIB_SUPPORT
 #include "../cpp-utils/utils.hpp"
 
+struct REPOSITORY {
+    std::string uri;
+    utils::httplib::PROXY proxy;
+
+    REPOSITORY(std::string uri) {
+        this->uri = uri;
+    }
+
+    REPOSITORY(std::string uri, std::string proxyHost, int proxyPort) {
+        this->uri = uri;
+        this->proxy.host = proxyHost;
+        this->proxy.port = proxyPort;
+    }
+
+    REPOSITORY(std::string uri, std::string proxy) {
+        this->uri = uri;
+        this->proxy.setProxy(proxy);
+    }
+};
+
 inline void println(const httplib::Request& req, std::string text, WORD color, bool ssl) {
     std::vector<utils::console::CONSOLE_TEXT> v;
     if (ssl) {
@@ -22,11 +42,13 @@ struct PARAM {
     string_t* resolvedUri;
     std::string* body;
     int* result;
+    utils::httplib::PROXY* proxy;
 
     PARAM() {
         this->resolvedUri = nullptr;
         this->body = nullptr;
         this->result = nullptr;
+        this->proxy = nullptr;
     }
 };
 
@@ -55,7 +77,7 @@ inline DWORD WINAPI downloadThread(LPVOID param) {
     return 1;
 }
 
-inline int GetCacheFile(string_t path, string_t* resolvedUri, std::string* cacheFileBytes, string_t localRepositoryDirectory, std::vector<string_t>& repoServersList) {
+inline int GetCacheFile(string_t path, string_t* resolvedUri, std::string* cacheFileBytes, string_t localRepositoryDirectory, std::vector<REPOSITORY>& repoServersList) {
     auto result = utils::httplib::status::NOT_FOUND;
     if (resolvedUri && cacheFileBytes) {
         auto localFile = localRepositoryDirectory + utils::strings::replace(path, "/", PATH_SEPARATOR);
@@ -79,10 +101,11 @@ inline int GetCacheFile(string_t path, string_t* resolvedUri, std::string* cache
             std::vector<HANDLE> threads;
             for (auto& e : repoServersList) {
                 struct PARAM* param = new PARAM();
-                param->url = e + path;
+                param->url = e.uri + path;
                 param->resolvedUri = resolvedUri;
                 param->body = cacheFileBytes;
                 param->result = &result;
+                param->proxy = &e.proxy;
                 threads.push_back(CreateThread(nullptr, 0, downloadThread, param, 0, nullptr));
                 if (threads.size() == 1) {
                     WaitForSingleObject(threads.at(0), INFINITE);
@@ -103,7 +126,7 @@ inline int GetCacheFile(string_t path, string_t* resolvedUri, std::string* cache
 }
 
 inline void fetch(const httplib::Request& req, httplib::Response& res, bool ssl,
-    std::vector<string_t> ignorePrefix, string_t localDirectory, std::vector<string_t> repos,
+    std::vector<string_t> ignorePrefix, string_t localDirectory, std::vector<REPOSITORY> repos,
     std::vector<string_t> exclude) {
     if (res.status == utils::httplib::status::NOT_FOUND) {
         auto file = utils::io::path::GetExeFileDirectory();
