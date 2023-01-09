@@ -20,8 +20,8 @@ extern std::vector<std::string> nodejsIgnorePrefix;
 #define NODEJS_PORT (8081)
 
 int main() {
-    config::init();
     utils::httplib::CreateCertificate();
+    config::init();
     InitializeCriticalSection(&criticalSection);
 
     CloseHandle(CreateThread(nullptr, 0, [](LPVOID) -> DWORD {

@@ -61,13 +61,13 @@ inline DWORD WINAPI downloadThread(LPVOID param) {
         if (res.empty() || err != utils::httplib::status::OK) {
             debug += " 404\n";
         } else {
-            EnterCriticalSection(utils::threading::GetCriticalSection());
+            utils::threading::lock();
             if (p->body->empty()) {
                 *p->resolvedUri = p->url;
                 *p->body = res;
                 *p->result = utils::httplib::status::OK;
             }
-            LeaveCriticalSection(utils::threading::GetCriticalSection());
+            utils::threading::unlock();
             debug += " 200\n";
         }
         OutputDebugString(debug.c_str());
@@ -109,11 +109,11 @@ inline int GetCacheFile(string_t path, string_t* resolvedUri, std::string* cache
                 threads.push_back(CreateThread(nullptr, 0, downloadThread, param, 0, nullptr));
                 if (threads.size() == 1) {
                     WaitForSingleObject(threads.at(0), INFINITE);
-                    EnterCriticalSection(utils::threading::GetCriticalSection());
+                    utils::threading::lock();
                     if (*param->result == utils::httplib::status::OK) {
                         break;
                     }
-                    LeaveCriticalSection(utils::threading::GetCriticalSection());
+                    utils::threading::unlock();
                 }
             }
             for (auto& thread : threads) {
@@ -171,12 +171,12 @@ inline void fetch(const httplib::Request& req, httplib::Response& res, bool ssl,
                             relativeFilePath = utils::io::path::combine(relativeFilePath, utils::io::path::GetFileName(relativeFilePath));
                         }
                         auto directoryPath = utils::io::path::GetDirectoryPath(relativeFilePath);
-                        EnterCriticalSection(utils::threading::GetCriticalSection());
+                        utils::threading::lock();
                         if (utils::io::file::exists(directoryPath)) {
                             utils::io::remove(directoryPath);
                         }
                         utils::io::file::write(relativeFilePath, fileBytes);
-                        LeaveCriticalSection(utils::threading::GetCriticalSection());
+                        utils::threading::unlock();
 
                         auto mimeType = "application/octet-stream";
                         if (resolvedUri.find(".pom") != std::string::npos ||
