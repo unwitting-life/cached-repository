@@ -57,7 +57,7 @@ inline DWORD WINAPI downloadThread(LPVOID param) {
     if (p) {
         std::string debug = "TRY -> " + p->url;
         int err = 0;
-        auto res = utils::httplib::Get(p->url, &err);
+        auto res = utils::httplib::Get(p->url, p->proxy, &err);
         if (res.empty() || err != utils::httplib::status::OK) {
             debug += " 404\n";
         } else {
