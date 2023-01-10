@@ -45,7 +45,7 @@ int main() {
         sslServer.Get(".*", [&](const httplib::Request& req, httplib::Response& res) {
             res.status = 404;
             fetch(req, res, true, mavenIgnorePrefix, mavenDirectory, mavenRepos, mavenExclude);
-            });
+        });
         sslServer.listen("0.0.0.0", MAVEN_TLS_PORT);
         return 0;
         }, nullptr, 0, nullptr));

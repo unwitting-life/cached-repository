@@ -3,6 +3,8 @@
 #define CPPHTTPLIB_HTTPLIB_SUPPORT
 #include "../cpp-utils/utils.hpp"
 
+constexpr auto respoMutexName = _T("cached-repository");
+
 struct REPOSITORY {
     std::string uri;
     utils::httplib::PROXY proxy;
@@ -61,13 +63,13 @@ inline DWORD WINAPI downloadThread(LPVOID param) {
         if (res.empty() || err != utils::httplib::status::OK) {
             debug += " 404\n";
         } else {
-            utils::threading::lock();
+            utils::threading::lock(respoMutexName);
             if (p->body->empty()) {
                 *p->resolvedUri = p->url;
                 *p->body = res;
                 *p->result = utils::httplib::status::OK;
             }
-            utils::threading::unlock();
+            utils::threading::unlock(respoMutexName);
             debug += " 200\n";
         }
         OutputDebugString(debug.c_str());
@@ -109,11 +111,11 @@ inline int GetCacheFile(string_t path, string_t* resolvedUri, std::string* cache
                 threads.push_back(CreateThread(nullptr, 0, downloadThread, param, 0, nullptr));
                 if (threads.size() == 1) {
                     WaitForSingleObject(threads.at(0), INFINITE);
-                    utils::threading::lock();
+                    utils::threading::lock(respoMutexName);
                     if (*param->result == utils::httplib::status::OK) {
                         break;
                     }
-                    utils::threading::unlock();
+                    utils::threading::unlock(respoMutexName);
                 }
             }
             for (auto& thread : threads) {
@@ -131,20 +133,21 @@ inline void fetch(const httplib::Request& req, httplib::Response& res, bool ssl,
     if (res.status == utils::httplib::status::NOT_FOUND) {
         auto file = utils::io::path::GetExeFileDirectory();
         file = utils::io::path::combine(file, _T("wwwroot"));
-        file = utils::io::path::combine(file, utils::strings::t2t(req.path));
+        file = utils::io::path::combine(file, utils::strings::t2t(utils::httplib::GetUrl(req.path)));
         if (utils::strings::upper(req.method) == utils::httplib::method::GET) {
             if (utils::io::file::exists(file)) {
                 res.status = utils::httplib::status::OK;
                 res.set_content(utils::io::file::read(file), utils::httplib::mime::GetMimeType(file));
             } else if (req.path == "/") {
+                auto now = utils::datetime::now("%04d%02d%02d%02d%02d%02d%03d");
                 res.status = utils::httplib::status::TEMPORARILY_MOVED;
-                res.set_header(utils::httplib::header::Location, "/index/CACHED-REPOSITORY.html");
+                res.set_header(utils::httplib::header::Location,
+                    utils::strings::formatA("/index/CACHED-REPOSITORY.html?%s", utils::datetime::now("%04d/%02d/%02d %02d:%02d:%02d.%03d").c_str()));
             } else {
                 auto url = utils::strings::t2t(req.path);
                 for (auto& e : ignorePrefix) {
                     url = utils::strings::replace(url, e, _T(""));
                 }
-
                 std::string fileBytes;
                 string_t resolvedUri;
                 string_t debug = req.method + " -> " + url + "\n";
@@ -171,12 +174,12 @@ inline void fetch(const httplib::Request& req, httplib::Response& res, bool ssl,
                             relativeFilePath = utils::io::path::combine(relativeFilePath, utils::io::path::GetFileName(relativeFilePath));
                         }
                         auto directoryPath = utils::io::path::GetDirectoryPath(relativeFilePath);
-                        utils::threading::lock();
+                        utils::threading::lock(respoMutexName);
                         if (utils::io::file::exists(directoryPath)) {
                             utils::io::remove(directoryPath);
                         }
                         utils::io::file::write(relativeFilePath, fileBytes);
-                        utils::threading::unlock();
+                        utils::threading::unlock(respoMutexName);
 
                         auto mimeType = "application/octet-stream";
                         if (resolvedUri.find(".pom") != std::string::npos ||
