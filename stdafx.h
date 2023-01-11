@@ -112,8 +112,11 @@ inline int GetCacheFile(string_t path, string_t* resolvedUri, std::string* cache
                 if (threads.size() == 1) {
                     WaitForSingleObject(threads.at(0), INFINITE);
                     utils::threading::lock(respoMutexName);
-                    if (*param->result == utils::httplib::status::OK) {
-                        break;
+                    auto p = param->result;
+                    if (!IsBadWritePtr(p, sizeof(*p))) {
+                        if (*p == utils::httplib::status::OK) {
+                            break;
+                        }
                     }
                     utils::threading::unlock(respoMutexName);
                 }
