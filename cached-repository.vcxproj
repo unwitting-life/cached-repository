@@ -51,6 +51,9 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PreBuildEvent>
+      <Command>if not exist "$(ProjectDir)config.cpp" (copy "$(ProjectDir)config.cpp.in" "$(ProjectDir)config.cpp")</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="config.cpp" />

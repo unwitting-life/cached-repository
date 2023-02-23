@@ -1,0 +1,25 @@
+#pragma once
+#include "config.h"
+
+auto mavenDirectory = utils::io::path::GetWorkingDirectory() + "\\repos\\.m2";
+std::vector<REPOSITORY> mavenRepos;
+std::vector<std::string> mavenExclude;
+std::vector<std::string> mavenIgnorePrefix;
+
+auto nodejsDirectory = utils::io::path::GetWorkingDirectory() + "\\repos\\nodejs";
+std::vector<REPOSITORY> nodejsRepos;
+std::vector<std::string> nodejsExclude;
+std::vector<std::string> nodejsIgnorePrefix;
+
+namespace config {
+    void init() {
+        static auto b = false;
+        if (!b) {
+            b = true;
+            mavenRepos.emplace_back(_T("https://repo1.maven.org/maven2"), _T("unwitting.life"), 8080);
+            mavenExclude.push_back(_T("/life/unwitting/sample"));
+            nodejsRepos.emplace_back(_T("https://registry.npmjs.org"), _T("unwitting.life"), 8080);
+            nodejsIgnorePrefix.push_back(_T("/nexus/content/groups/npm-all"));
+        }
+    }
+}

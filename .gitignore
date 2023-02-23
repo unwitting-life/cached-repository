@@ -3,3 +3,4 @@
 /cached-repository.vcxproj.filters
 /.vs
 /config.cpp.in
+/config.cpp

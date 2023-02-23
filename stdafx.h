@@ -140,7 +140,8 @@ inline void fetch(const httplib::Request& req, httplib::Response& res, bool ssl,
                 auto now = utils::datetime::now("%04d%02d%02d%02d%02d%02d%03d");
                 res.status = utils::httplib::status::TEMPORARILY_MOVED;
                 res.set_header(utils::httplib::header::Location,
-                    utils::strings::formatA("/index/CACHED-REPOSITORY.html?%s", utils::datetime::now("%04d/%02d/%02d %02d:%02d:%02d.%03d").c_str()));
+                    utils::strings::formatA("/index/CACHED-REPOSITORY.html?%s", 
+                    utils::datetime::now("%04d/%02d/%02d %02d:%02d:%02d.%03d").c_str()));
             } else {
                 auto url = utils::strings::t2t(req.path);
                 for (auto& e : ignorePrefix) {

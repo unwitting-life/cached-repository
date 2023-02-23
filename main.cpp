@@ -53,7 +53,7 @@ int main() {
 
     Sleep(100);
     CloseHandle(CreateThread(nullptr, 0, [](LPVOID) -> DWORD {
-        utils::console::println(utils::strings::format(_T("[MAVEN] Listen on 0.0.0.0:%d"), NODEJS_PORT), FOREGROUND_GREEN);
+        utils::console::println(utils::strings::format(_T("[NODEJS] Listen on 0.0.0.0:%d"), NODEJS_PORT), FOREGROUND_GREEN);
         httplib::Server server;
         server.Get(".*", [&](const httplib::Request& req, httplib::Response& res) {
             res.status = 404;
