@@ -57,7 +57,8 @@ struct PARAM {
 inline DWORD WINAPI downloadThread(LPVOID param) {
     auto p = (struct PARAM*)param;
     if (p) {
-        std::string debug = "TRY -> " + p->url;
+        OutputDebugString(utils::strings::format("TRY -> %s ...\n", p->url.c_str()).c_str());
+        std::string debug = "TRY -> " + p->url; 
         int err = 0;
         auto res = utils::httplib::Get(p->url, p->proxy, &err);
         if (res.empty() || err != utils::httplib::status::OK) {

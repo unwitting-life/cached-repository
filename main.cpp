@@ -21,7 +21,7 @@ extern std::vector<std::string> nodejsIgnorePrefix;
 #define NODEJS_PORT (8081)
 
 int main() {
-    utils::httplib::CreateCertificate();
+    utils::httplib::CreateCertificate(false);
     config::init();
     InitializeCriticalSection(&criticalSection);
 
