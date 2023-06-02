@@ -16,25 +16,18 @@ constexpr auto MAVEN_SSL_PORT = (443);
 constexpr auto NODEJS_PORT = (8082);
 
 int main() {
-    utils::http::httplib::create_new_certificate(false);
     InitializeCriticalSection(&criticalSection);
     for (auto& e : string_t(maven_directory).to_directory()->files()) {
-        auto jar = string_t(e).to_path();
-        if (string_t(jar->extension()).lower() == L".jar") {
-            auto sha1_file = string_t(string_t(jar->directory()).to_path()->combine(string_t(string_t(L"%s.sha1").format(jar->name().c_str())))).to_ofstream();
-            if (!sha1_file->exists()) {
-                auto sha1 = string_t(jar->c_str()).to_file()->sha1();
-                sha1_file->write(string_t(sha1).s());
-                OutputDebugString(string_t(L"[SHA1] %s -> %s\n").format(e, sha1).c_str());
-            }
-            auto md5_file = string_t(string_t(jar->directory()).to_path()->combine(string_t(string_t(L"%s.md5").format(jar->name().c_str())))).to_ofstream();
-            if (!md5_file->exists()) {
-                auto md5 = string_t(jar->c_str()).to_file()->md5();
-                md5_file->write(string_t(md5).s());
-                OutputDebugString(string_t(L"[MD5] %s -> %s\n").format(e, md5).c_str());
-            }
-        }
+        sha1_jar(e);
+        md5_jar(e);
     }
+    system("cls");
+    printf("\033[0m****************************************************************\n");
+    printf("\033[0m* URL    : https://github.com/unwitting-life/cached-repository *\n");
+    printf("\033[0m* License: MIT                                                 *\n");
+    printf("\033[0m* Author : Yuanlei Huang                                       *\n");
+    printf("\033[0m* Latest : 2023/06/02                                          *\n");
+    printf("\033[0m****************************************************************\n");
     CloseHandle(CreateThread(nullptr, 0, [](LPVOID) -> DWORD {
         utils::system::console::println(string_t(L"[MAVEN] Listen on 0.0.0.0:%d").format(MAVEN_HTTP_PORT), FOREGROUND_GREEN);
         httplib::Server server;
@@ -51,6 +44,7 @@ int main() {
         auto certFilePath = string_t(utils::system::io::path::executable_file_directory()).to_path()->combine(L"certificate.crt");
         auto keyFilePath = string_t(utils::system::io::path::executable_file_directory()).to_path()->combine(L"private.pem");
         if (!string_t(certFilePath).to_file()->exists()) {
+            utils::http::httplib::create_new_certificate(true);
             certFilePath = string_t(utils::system::io::path::executable_file_directory()).to_path()->combine(L"localhost.crt");
             keyFilePath = string_t(utils::system::io::path::executable_file_directory()).to_path()->combine(L"localhost.key");
         }

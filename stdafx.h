@@ -38,14 +38,55 @@ struct PARAM {
     std::wstring* src;
     std::string* body;
     std::string* content_type;
+    std::wstring* proxy_host;
     int* result;
     utils::http::Proxy proxy;
-    PARAM() :src(nullptr), body(nullptr), content_type(nullptr), result(nullptr) {}
+    PARAM() :src(nullptr), body(nullptr), content_type(nullptr), proxy_host(nullptr), result(nullptr) {}
 };
+
+void sha1_jar(std::wstring file) {
+    auto jar = string_t(file).to_path();
+    if (string_t(jar->extension()).lower() == L".jar" ||
+        string_t(jar->extension()).lower() == L".pom") {
+        auto sha1_file = string_t(string_t(jar->directory()).to_path()->combine(string_t(string_t(L"%s.sha1").format(jar->name().c_str())))).to_ofstream(true);
+        if (sha1_file->size() != 40) {
+            auto sha1 = string_t(string_t(jar->c_str()).to_file()->sha1()).lower();
+            sha1_file->write(string_t(sha1).s());
+            std::vector<utils::system::console::text> v;
+            v.push_back(utils::system::console::text(L"["));
+            v.push_back(utils::system::console::text(L"SHA1", FOREGROUND_GREEN | FOREGROUND_BLUE));
+            v.push_back(utils::system::console::text(L"]"));
+            v.push_back(utils::system::console::text(sha1_file->c_str(), FOREGROUND_GREEN | FOREGROUND_INTENSITY));
+            v.push_back(utils::system::console::text(L" -> "));
+            v.push_back(utils::system::console::text(sha1, FOREGROUND_GREEN | FOREGROUND_INTENSITY));
+            utils::system::console::println(v);
+        }
+    }
+}
+
+void md5_jar(std::wstring file) {
+    auto jar = string_t(file).to_path();
+    if (string_t(jar->extension()).lower() == L".jar" ||
+        string_t(jar->extension()).lower() == L".pom") {
+        auto md5_file = string_t(string_t(jar->directory()).to_path()->combine(string_t(string_t(L"%s.md5").format(jar->name().c_str())))).to_ofstream(true);
+        if (md5_file->size() != 32) {
+            auto md5 = string_t(string_t(jar->c_str()).to_file()->md5()).lower();
+            md5_file->write(string_t(md5).s());
+            std::vector<utils::system::console::text> v;
+            v.push_back(utils::system::console::text(L"["));
+            v.push_back(utils::system::console::text(L"MD5", FOREGROUND_GREEN | FOREGROUND_BLUE));
+            v.push_back(utils::system::console::text(L"]"));
+            v.push_back(utils::system::console::text(md5_file->c_str(), FOREGROUND_GREEN | FOREGROUND_INTENSITY));
+            v.push_back(utils::system::console::text(L" -> "));
+            v.push_back(utils::system::console::text(md5, FOREGROUND_GREEN | FOREGROUND_INTENSITY));
+            utils::system::console::println(v);
+        }
+    }
+}
 
 inline DWORD WINAPI get_thread(LPVOID param) {
     auto p = (struct PARAM*)param;
-    if (p && p->result && p->src && p->body && p->content_type && p->result) {
+    if (p && p->result && p->src && p->body && p->content_type && p->proxy_host && p->result) {
         if (p->proxy.host.empty()) {
             OutputDebugString(string_t(L"TRY -> %s ...\n").format(p->url).c_str());
         } else {
@@ -70,6 +111,7 @@ inline DWORD WINAPI get_thread(LPVOID param) {
                         break;
                     }
                 }
+                *p->proxy_host = string_t(L"%s:%d").format(string_t(p->proxy.host), p->proxy.port);
                 *p->result = utils::http::status::Ok;
             }
         }
@@ -78,49 +120,6 @@ inline DWORD WINAPI get_thread(LPVOID param) {
         p = nullptr;
     }
     return 1;
-}
-
-inline std::tuple<std::wstring, std::string, std::string, int> get(std::wstring path, std::wstring physics_repository_directory_path, std::vector<repository>& repoServersList) {
-    auto tuple = std::make_tuple(std::wstring(), std::string(), std::string(), utils::http::status::NotFound);
-    std::get<0>(tuple) = physics_repository_directory_path + string_t(path).replace(L'/', PATH_SEPARATOR);
-    if (string_t(std::get<0>(tuple)).to_path()->extension().empty()) {
-        std::get<0>(tuple) = string_t(std::get<0>(tuple)).to_path()->combine(string_t(".%s").format(string_t(std::get<0>(tuple)).to_path()->name()));
-    }
-    if (!string_t(std::get<0>(tuple)).to_file()->exists()) {
-        std::vector<HANDLE> threads;
-        for (auto& e : repoServersList) {
-            struct PARAM* param = new PARAM();
-            param->url = e.uri + path;
-            param->src = &std::get<0>(tuple);
-            param->body = &std::get<1>(tuple);
-            param->content_type = &std::get<2>(tuple);
-            param->result = &std::get<3>(tuple);
-            param->proxy = e.proxy;
-            threads.push_back(CreateThread(nullptr, 0, get_thread, param, 0, nullptr));
-        }
-        for (auto& thread : threads) {
-            WaitForSingleObject(thread, INFINITE);
-            CloseHandle(thread);
-        }
-        if (!std::get<1>(tuple).empty()) {
-            string_t(string_t(std::get<0>(tuple)).to_path()->directory()).to_directory()->mkdir(true);
-            string_t(std::get<1>(tuple)).to_ofstream()->write(std::get<1>(tuple));
-        }
-    }
-    if (string_t(std::get<0>(tuple)).to_file()->exists()) {
-        auto fe = _wfopen(std::get<0>(tuple).c_str(), L"rb+");
-        if (fe) {
-            fseek(fe, 0, SEEK_END);
-            auto size = ftell(fe);
-            fseek(fe, 0, SEEK_SET);
-            auto buffer = new char[size];
-            fread(buffer, sizeof(buffer[0]), size, fe);
-            std::get<1>(tuple) = std::string(buffer, size);
-            delete[] buffer;
-            fclose(fe);
-        }
-    }
-    return tuple;
 }
 
 inline void invoke(const httplib::Request& req, 
@@ -156,13 +155,24 @@ inline void invoke(const httplib::Request& req,
                 auto body = std::string();
                 auto content_type = std::string();
                 auto result = int(0);
+                auto proxy_host = std::wstring();
                 if (string_t(file).to_file()->size() > 0) {
                     body = string_t(file).to_file()->content();
                 } else {
                     std::vector<HANDLE> threads;
                     for (auto& e : repos) {
-                        struct PARAM* param = new PARAM();
+                        struct PARAM* param = nullptr;
                         auto uri = std::wstring(req_path);
+                        auto init_param = [&]() {
+                            param = new PARAM();
+                            param->url = e.uri + uri;
+                            param->src = &src;
+                            param->body = &body;
+                            param->content_type = &content_type;
+                            param->result = &result;
+                            param->proxy = e.proxy;
+                            param->proxy_host = &proxy_host;
+                        };
                         for (auto& p : prohibit) {
                             uri = string_t(uri).replace(p, std::wstring());
                         }
@@ -170,13 +180,27 @@ inline void invoke(const httplib::Request& req,
                             if (uri.front() != L'/') {
                                 uri += L'/';
                             }
-                            param->url = e.uri + uri;
-                            param->src = &src;
-                            param->body = &body;
-                            param->content_type = &content_type;
-                            param->result = &result;
-                            param->proxy = e.proxy;
+                            init_param();
                             threads.push_back(CreateThread(nullptr, 0, get_thread, param, 0, nullptr));
+                        }
+                        if (threads.size() == 1) {
+                            auto ready = false;
+                            auto retry = 3;
+                            while (!ready && retry-- > 0) {
+                                WaitForSingleObject(threads[0], INFINITE);
+                                if (result == utils::http::status::Ok && !body.empty()) {
+                                    ready = true;
+                                } else if (result == utils::http::status::None && body.empty()) {
+                                    threads.clear();
+                                    init_param();
+                                    threads.push_back(CreateThread(nullptr, 0, get_thread, param, 0, nullptr));
+                                } else {
+                                    retry = 0;
+                                }
+                            }
+                            if (ready) {
+                                break;
+                            }
                         }
                     }
                     for (auto& thread : threads) {
@@ -187,9 +211,10 @@ inline void invoke(const httplib::Request& req,
                         string_t(string_t(file).to_path()->directory()).to_directory()->mkdir(true);
                         string_t(file).to_ofstream()->write(body);
                         string_t(file_info).to_ofstream()->write(content_type);
+                        sha1_jar(file);
+                        md5_jar(file);
                     }
                 } 
-
                 if (body.empty()) {
                     println(req, req_path, FOREGROUND_RED | FOREGROUND_INTENSITY);
                 } else {
@@ -205,12 +230,22 @@ inline void invoke(const httplib::Request& req,
                     res.status = utils::http::status::Ok;
 
                     char buffer[1000] = { 0 };
-                    sprintf(buffer, " -> %d bytes", (int)body.size());
+                    sprintf(buffer, "%d bytes", (int)body.size());
                     std::vector<utils::system::console::text> v;
-                    v.push_back(utils::system::console::text(req.remote_addr, FOREGROUND_GREEN | FOREGROUND_INTENSITY));
-                    v.push_back(utils::system::console::text(L": "));
-                    v.push_back(utils::system::console::text(file, FOREGROUND_GREEN | FOREGROUND_INTENSITY));
-                    v.push_back(utils::system::console::text(buffer));
+                    v.push_back(utils::system::console::text(L"["));
+                    v.push_back(utils::system::console::text(req.remote_addr, FOREGROUND_GREEN | FOREGROUND_BLUE));
+                    v.push_back(utils::system::console::text(L"] "));
+                    if (src.empty()) {
+                        v.push_back(utils::system::console::text(file, FOREGROUND_GRAY));
+                    } else {
+                        v.push_back(utils::system::console::text(src, FOREGROUND_GREEN | FOREGROUND_INTENSITY));
+                        if (!proxy_host.empty()) {
+                            v.push_back(utils::system::console::text(L" via ", FOREGROUND_GREEN | FOREGROUND_BLUE));
+                            v.push_back(utils::system::console::text(proxy_host, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE));
+                        }
+                    }
+                    v.push_back(utils::system::console::text(L" -> "));
+                    v.push_back(utils::system::console::text(buffer, FOREGROUND_GREEN | FOREGROUND_INTENSITY));
                     utils::system::console::println(v);
                 }
             }
