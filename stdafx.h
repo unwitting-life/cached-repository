@@ -94,7 +94,10 @@ inline DWORD WINAPI get_thread(LPVOID param) {
         }
         auto debug = string_t(L"TRY -> ") + string_t( p->url);
         int err = 0;
-        auto res = string_t(p->url).to_curl(string_t(L"%s:%d").format(string_t(p->proxy.host).c_str(), p->proxy.port))->get();
+        auto proxy = string_t(L"%s%s").format(
+            string_t(p->proxy.host),
+            p->proxy.host.empty() ? string_t() : string_t(L":%d").format(p->proxy.port));
+        auto res = string_t(p->url).to_curl(proxy)->get();
         if (res.status_code == utils::http::status::NotFound) {
             debug += L" 404\n";
         } else if (res.body.empty()) {
@@ -111,7 +114,8 @@ inline DWORD WINAPI get_thread(LPVOID param) {
                         break;
                     }
                 }
-                *p->proxy_host = string_t(L"%s:%d").format(string_t(p->proxy.host), p->proxy.port);
+                *p->proxy_host = proxy;
+                *p->proxy_host = proxy;
                 *p->result = utils::http::status::Ok;
             }
         }
@@ -209,8 +213,8 @@ inline void invoke(const httplib::Request& req,
                     }
                     if (!body.empty()) {
                         string_t(string_t(file).to_path()->directory()).to_directory()->mkdir(true);
-                        string_t(file).to_ofstream()->write(body);
-                        string_t(file_info).to_ofstream()->write(content_type);
+                        string_t(file).to_ofstream(true)->write(body);
+                        string_t(file_info).to_ofstream(true)->write(content_type);
                         sha1_jar(file);
                         md5_jar(file);
                     }
